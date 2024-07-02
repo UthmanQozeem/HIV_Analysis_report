@@ -1,0 +1,288 @@
+---
+title: "HIV_2009_ANALYSIS_REPORT_NIGERIA"
+author: "*By Qozeem Uthman*"
+format: 
+  dashboard
+theme: lumen
+---
+
+
+```{r setup, include=FALSE, message=FALSE}
+#Load packages
+if(!require(pacman)) install.packages("pacman")
+pacman::p_load(here, tidyverse,
+               ggplot2, plotly, reactable,
+               bslib, shiny, gapminder,
+               bsicons, reactable, htmltools,
+               highcharter, flexdashboard,
+               rnaturalearth, plotly, countrycode,
+               ggtext, sf, flextable)
+
+```
+
+```{r}
+import_data<-read_csv(here("data/hiv_incidence_pop.csv"))
+import_data1 <- import_data %>%
+  filter(year %in% 2005:2009)
+
+data2<-read_csv(here("data/hiv_prev_pop.csv"))
+import_data2 <- data2 %>%
+  filter(year %in% 2005:2009)
+
+data3<-read_csv(here("data/newly_hiv_infected_number_all_ages.csv"))
+import_data3 <- data3 %>%
+  filter(country == "Nigeria") %>%
+  select(`2005`:`2011`) %>%
+  pivot_longer(cols = `2005`:`2011`, names_to = "Year", values_to = "Figure") %>%
+  arrange(desc(Year)) %>% reactable()
+
+data4<-read_csv(here("data/people_living_with_hiv_number_all_ages.csv"))
+import_data4 <- data4 %>%
+  filter(country == "Nigeria") %>%
+  select(`2005`:`2011`) %>%
+  pivot_longer(cols = `2005`:`2011`, names_to = "Year", values_to = "Figure") %>%
+  arrange(desc(Year)) %>% reactable()
+
+
+```
+
+
+```{r}
+# Filter the data for Nigeria
+nigeria_data <- import_data1 %>% filter(country == "Nigeria")
+
+# Calculate HIV incidence rate per year for Nigeria
+nigeria_data <- nigeria_data %>%
+  mutate(incidence_rate = (new_cases / population) * 100000)
+
+# Display the incidence rate per year
+nigeria_incidence <- nigeria_data %>% select(year, incidence_rate)
+
+Incidence_Rate<-nigeria_incidence%>%filter(year==2009)%>% select(incidence_rate) %>% pull(incidence_rate)%>%
+  round(1)
+
+# Visualization: Interactive plot of new cases over the years for Nigeria
+# Define custom colors
+
+# Example custom colors
+mycolors <- c("#add8e6", "#4A5A73", "#FFB6C1", "#dddddd",  "#E6E6FA")
+
+new_cases_plot <- ggplot(nigeria_data, aes(x = year, y = new_cases)) +
+  geom_line() +
+  geom_point(size = 1) +
+  labs(title = "",
+       x = "Year",
+       y = "New Cases",
+       color = "Year") +
+  theme_minimal()
+
+# Convert ggplot object to plotly for interactivity
+plot1<-ggplotly(new_cases_plot)
+
+
+
+# Visualization: Interactive plot of population over the years for Nigeria
+population_plot <- ggplot(nigeria_data, aes(x = year, y = population)) +
+  geom_line() +
+  geom_point(size = 1) +
+  labs(title = "",
+       x = "Year",
+       y = "Population",
+       color = "Year") +
+  theme_minimal()
+
+# Convert ggplot object to plotly for interactivity
+plot2<-ggplotly(population_plot)
+
+```
+
+
+```{r}
+# Filter the data for Nigeria
+nigeria_data2 <- import_data2 %>% filter(country == "Nigeria")
+
+# Calculate HIV prevalence rate per year for Nigeria
+nigeria_data2 <- nigeria_data2 %>%
+  mutate(prevalence_rate = (total_cases / population) * 100000)
+
+# Display the prevalence rate per year
+nigeria_prevalence <- nigeria_data2 %>% select(year, prevalence_rate)
+
+Prevalence_Rate <-HIV_prevelance<-nigeria_prevalence%>%
+  filter(year==2009)%>% 
+  select(prevalence_rate) %>% pull(prevalence_rate)%>%
+  round(1)
+
+# Visualization: Interactive plot of total cases over the years for Nigeria
+total_cases_plot <- ggplot(nigeria_data2, aes(x = year, y = total_cases)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "",
+       x = "Year",
+       y = "Total Cases") +
+  theme_minimal()
+
+plot3<-ggplotly(total_cases_plot)
+
+
+# Calculate total cases for each year
+total_cases_year <- nigeria_data2 %>%
+  group_by(year) %>%
+  summarise(total_cases = sum(total_cases))
+
+pie_chart <- plot_ly(labels = total_cases_year$year,
+                     values = total_cases_year$total_cases,
+                     type = "pie",
+                     marker = list(colors = mycolors),
+                     textinfo = "label+percent",
+                     hoverinfo = "text+percent",
+                     textposition = "inside",
+                     hole = 0.6) %>%
+  layout(showlegend = FALSE)
+
+plot4<-pie_chart
+
+```
+
+```{r}
+nig_data1 <- import_data %>% filter(country == "Nigeria")
+nig_data2 <- data2 %>% filter(country == "Nigeria")
+
+# Combine the datasets
+combined_data <- nig_data1 %>%
+    select(country, year, new_cases, population) %>%
+    inner_join(nig_data2 %>% select(country, year, total_cases, population), 
+               by = c("country", "year", "population"))
+
+# Select only the columns you need
+final_data <- combined_data %>%
+    select(country, year, population, new_cases, total_cases)
+```
+
+
+# DASHBOARD
+
+## Row 1 {height=20%}
+```{r}
+value_box(
+  title = "Incidence Rate",
+  value = Incidence_Rate,
+  showcase = bsicons::bs_icon("save-fill"),
+  theme = value_box_theme(bg = "#4A5A73"))
+```
+
+```{r}
+value_box(
+  title = "Prevalence Rate",
+  value = Prevalence_Rate,
+  showcase = bsicons::bs_icon("infinity"),
+  theme = value_box_theme(bg = "#343a40"))
+```
+
+```{r}
+value_box(
+  title = "Newly HIV Infected",
+  value = "360K",
+  showcase = bsicons::bs_icon("search"),
+  theme = value_box_theme(bg = "#add8e6")
+)
+```
+
+```{r}
+value_box(
+  title = "People Living with HIV",
+  value = "3.2M",
+  showcase = bsicons::bs_icon("people-fill"),
+  theme = value_box_theme(bg = "#E6E6FA")
+)
+```
+
+## Row 2 {height=80%}
+
+### {width=35%}
+
+```{r title = "HIV Incidence in Nigeria"}
+plot1
+```
+
+### {width=30%}
+
+```{r title = "Distribution of HIV Cases by Year in Nigeria"}
+plot4
+```
+### {width=35%}
+
+
+```{r title = "HIV Prevalence in Nigeria"}
+plot3
+```
+
+
+# NIGERIA HIV SCENE
+
+## Row 1 {height=30%}
+
+```{r title = "Population in Nigeria"}
+plot2
+```
+
+## Row 2 {height=25%}
+
+### {width=20%}
+
+```{r title = "Newly_HIV_infected"}
+import_data3
+```
+
+### {width=25%}
+
+```{r title = "People_living_with_HIV"}
+import_data4
+```
+
+## {.sidebar width=20%}
+
+Future research topics related to Human Immunodeficiency Virus (HIV), we can explore several important areas based on the available data provided:
+
+### Introduction to HIV
+
+Human Immunodeficiency Virus (HIV) is a virus that attacks the body’s immune system, specifically the CD4 cells (T cells), which are crucial for fighting infections. If untreated, HIV can lead to Acquired Immunodeficiency Syndrome (AIDS). Unlike some other viruses, the human body cannot get rid of HIV completely, so once someone has HIV, they have it for life.
+
+### Symptoms and Causes
+
+HIV is primarily spread through unprotected sex, sharing needles, and from mother to child during childbirth or breastfeeding. Initial symptoms can include fever, chills, rash, night sweats, muscle aches, sore throat, fatigue, swollen lymph nodes, and mouth ulcers. These symptoms can appear within 2-4 weeks after exposure and may last for a few weeks. As the virus progresses, it can lead to more severe symptoms and opportunistic infections.
+
+### Important Things to Know
+
+1. **Diagnosis and Treatment**: Early diagnosis through testing is crucial. Antiretroviral therapy (ART) is the standard treatment and, if taken consistently, can control the virus, allowing individuals to live long, healthy lives and reducing the risk of transmission.
+2. **Prevention**: Preventive measures include using condoms, pre-exposure prophylaxis (PrEP), and not sharing needles. Education and awareness are key in preventing the spread of HIV.
+
+### Future Research and Recommendations
+
+Future research focuses on finding a cure, developing effective vaccines, and creating novel antiretroviral therapies. Promising areas include exploring gene editing technologies and latency reversal agents. Addressing the intersection of HIV with non-communicable diseases and aging, as well as overcoming stigma and improving healthcare access, are also critical  .
+
+---
+
+**References**:
+
+1. UNAIDS. (2023). [Global HIV & AIDS statistics](https://www.unaids.org/en/resources/fact-sheet).
+2. CDC. (2022). [HIV Basics](https://www.cdc.gov/hiv/basics/index.html).
+
+
+# DOWNLOAD DATA
+
+The subset of the raw data used in this dashboard is shown below and can be downloaded as a csv
+
+```{r}
+htmltools::browsable(
+  tagList(
+    reactable(combined_data,
+              elementId = "combined_data",
+              searchable = TRUE,
+              filterable = TRUE),
+    tags$button("Download as CSV",
+                onclick = "Reactable.downloadDataCSV('combined_data')")
+  )
+)
+
+```
